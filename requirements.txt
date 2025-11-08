@@ -1,2 +1,5 @@
-
 reflex==0.8.18
+numpy
+pandas
+scikit-learn
+joblib
