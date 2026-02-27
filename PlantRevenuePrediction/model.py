@@ -77,7 +77,7 @@ class SugarcaneModel:
 
         # ========== PROCESSING COSTS ==========
         data["sugar_processing_cost_per_ton_cane"] = np.random.normal(45, 8, num_samples)
-        data["ethanol_processing_cost_per_ton_cane"] = np.random.normal(65, 12, num_samples)
+        data["ethanol_processing_cost_per_ton_cane"] = np.random.normal(25, 5, num_samples)
         data["fermentation_efficiency"] = np.random.uniform(0.88, 0.96, num_samples)
 
         df = pd.DataFrame(data)
@@ -145,9 +145,9 @@ class SugarcaneModel:
         df["sugar_profit_per_hectare"] *= np.random.normal(1, 0.08, num_samples)
         df["ethanol_profit_per_hectare"] *= np.random.normal(1, 0.08, num_samples)
 
-        # Calculate per-ton and per-liter metrics for UI display
+        # Calculate per-ton and per-1000-liter metrics for UI display
         df["target_net_profit_per_ton"] = df["sugar_profit_per_hectare"] / df["cane_yield_tons_per_hectare"]
-        df["target_ethanol_profit_per_liter"] = df["ethanol_profit_per_hectare"] / df["ethanol_liters_per_hectare"]
+        df["target_ethanol_profit_per_1000_liter"] = (df["ethanol_profit_per_hectare"] / df["ethanol_liters_per_hectare"]) * 1000
 
         return df.round(2)
 
@@ -204,7 +204,7 @@ class SugarcaneModel:
         X = df_encoded.drop(
             columns=[
                 "date",  # Exclude date column from features
-                "target_ethanol_profit_per_liter",
+                "target_ethanol_profit_per_1000_liter",
                 "ethanol_production_profit",
                 "energy_cost_factor",
                 "market_correlation",
@@ -212,7 +212,7 @@ class SugarcaneModel:
             ],
             errors="ignore",
         )
-        y = df_encoded["target_ethanol_profit_per_liter"]
+        y = df_encoded["target_ethanol_profit_per_1000_liter"]
         return X, y
 
     def generate_synthetic_data_etanol(self, num_samples: int = 500) -> pd.DataFrame:
@@ -229,7 +229,7 @@ class SugarcaneModel:
             "ccs_quality", "fermentation_efficiency", "harvest_month",
             "cane_yield_tons_per_hectare", "sugar_content_brix",
             "avg_temp_plantation", "rainfall_mm",
-            "ethanol_profit_per_hectare", "target_ethanol_profit_per_liter"
+            "ethanol_profit_per_hectare", "target_ethanol_profit_per_1000_liter"
         ]
 
         # Rename for UI compatibility

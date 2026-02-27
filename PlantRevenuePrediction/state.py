@@ -1,5 +1,18 @@
+import json
+import math
 import threading
 import reflex as rx
+
+
+def _fmt(v) -> str:
+    """Convert any scalar value to a display string for rx.text()."""
+    if v is None:
+        return ""
+    if isinstance(v, float):
+        if math.isnan(v) or math.isinf(v):
+            return ""
+        return f"{v:.2f}"
+    return str(v)
 
 class State(rx.State):
     revenue: float = 0.0  # attribute revenue
@@ -274,7 +287,7 @@ class State(rx.State):
         self.training_status = "started"
 
     def predict_ethanol_profit(self) -> None:
-        """Predict ethanol profit per liter using current state inputs."""
+        """Predict ethanol profit per 1000 liters using current state inputs."""
         try:
             from .model import SugarcaneModel
 
@@ -337,19 +350,23 @@ class State(rx.State):
             display_cols = [col for col in display_cols if col in df_table.columns]
             df_display = df_table[display_cols].head(10)
 
-            self.sugar_data = df_display.to_dict(orient="records")
-            
+            raw_records = json.loads(
+                df_display.to_json(orient="records", date_format="iso")
+            )
+            self.sugar_data = [
+                {k: _fmt(v) for k, v in record.items()}
+                for record in raw_records
+            ]
+
             # Prepare chart data with dates
-            chart_cols = ["date", "sugar_price", "ethanol_price", "bagasse_value", 
+            chart_cols = ["date", "sugar_price", "ethanol_price", "bagasse_value",
                          "molasses_value", "ccs_quality", "target_net_profit_per_ton"]
             chart_cols = [col for col in chart_cols if col in df_chart.columns]
             df_chart_display = df_chart[chart_cols].copy()
-            
-            # Format dates for JSON serialization
-            if "date" in df_chart_display.columns:
-                df_chart_display["date"] = df_chart_display["date"].dt.strftime("%Y-%m-%d")
-            
-            self.sugar_chart_data = df_chart_display.to_dict(orient="records")
+
+            self.sugar_chart_data = json.loads(
+                df_chart_display.to_json(orient="records", date_format="iso")
+            )
             self.sugar_data_loaded = True
         except Exception as e:
             print("Error loading sugar data:", e)
@@ -363,34 +380,43 @@ class State(rx.State):
             from .model import SugarcaneModel
 
             model = SugarcaneModel()
-            # Generate table data (small sample for table)
-            df_table = model.generate_synthetic_data_etanol(num_samples=10)
-            
+            # Generate full dataset (500 samples)
+            df_table = model.generate_synthetic_data_etanol(num_samples=500)
+
             # Generate chart data (larger sample for charts)
             df_chart = model.generate_synthetic_data_etanol(num_samples=100)
 
-            # Convert to list of dicts and limit columns for display
+            # Include all generated columns
             display_cols = [
-                "ethanol_price", "crude_oil_price", "gasoline_price",
-                "ccs_quality", "fermentation_efficiency", "target_ethanol_profit_per_liter"
+                "date", "ethanol_price", "crude_oil_price", "gasoline_price",
+                "ccs_quality", "fermentation_efficiency", "harvest_month",
+                "cane_yield_tons_per_hectare", "sugar_content_brix",
+                "avg_temp_plantation", "rainfall_harvest",
+                "ethanol_profit_per_hectare", "target_ethanol_profit_per_1000_liter"
             ]
             # Only include columns that exist
             display_cols = [col for col in display_cols if col in df_table.columns]
-            df_display = df_table[display_cols].head(10)
+            df_display = df_table[display_cols].copy()
 
-            self.ethanol_data = df_display.to_dict(orient="records")
+            # Convert all values to formatted strings so rx.text() never
+            # receives None/NaN/Inf (which render as blank in Reflex).
+            raw_records = json.loads(
+                df_display.to_json(orient="records", date_format="iso")
+            )
+            self.ethanol_data = [
+                {k: _fmt(v) for k, v in record.items()}
+                for record in raw_records
+            ]
             
             # Prepare chart data with dates
-            chart_cols = ["date", "ethanol_price", "crude_oil_price", "gasoline_price", 
-                         "ccs_quality", "fermentation_efficiency", "target_ethanol_profit_per_liter"]
+            chart_cols = ["date", "ethanol_price", "crude_oil_price", "gasoline_price",
+                         "ccs_quality", "fermentation_efficiency", "target_ethanol_profit_per_1000_liter"]
             chart_cols = [col for col in chart_cols if col in df_chart.columns]
             df_chart_display = df_chart[chart_cols].copy()
-            
-            # Format dates for JSON serialization
-            if "date" in df_chart_display.columns:
-                df_chart_display["date"] = df_chart_display["date"].dt.strftime("%Y-%m-%d")
-            
-            self.ethanol_chart_data = df_chart_display.to_dict(orient="records")
+
+            self.ethanol_chart_data = json.loads(
+                df_chart_display.to_json(orient="records", date_format="iso")
+            )
             self.ethanol_data_loaded = True
         except Exception as e:
             print("Error loading ethanol data:", e)

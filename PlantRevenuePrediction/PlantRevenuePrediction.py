@@ -360,39 +360,72 @@ def data_table(title: str, data, load_action, is_sugar: bool) -> rx.Component:
     if is_sugar:
         columns = ["sugar_price", "ethanol_price", "ccs_quality", "avg_temp_plantation", "rainfall_harvest", "target_net_profit_per_ton"]
     else:
-        columns = ["ethanol_price", "crude_oil_price", "gasoline_price", "ccs_quality", "fermentation_efficiency", "target_ethanol_profit_per_liter"]
+        columns = [
+            "date", "ethanol_price", "crude_oil_price", "gasoline_price",
+            "ccs_quality", "fermentation_efficiency", "harvest_month",
+            "cane_yield_tons_per_hectare", "sugar_content_brix",
+            "avg_temp_plantation", "rainfall_harvest",
+            "ethanol_profit_per_hectare", "target_ethanol_profit_per_1000_liter",
+        ]
+
+    # Min width per cell so all columns stay readable
+    cell_min_w = "130px"
 
     def render_table():
-        """Render the table with headers and rows"""
+        """Render the table with headers and rows.
+
+        One container handles BOTH horizontal and vertical scroll so the
+        header row scrolls in sync with the data when the user pans left/right,
+        while still sticking to the top on vertical scroll.
+        """
         return rx.box(
-            rx.vstack(
-                # Header row
+            # Single container — both axes scroll together
+            rx.box(
+                # Header (sticky-top inside the shared scroll container)
                 rx.hstack(
-                    *[rx.box(rx.text(col.replace("_", " ").title(), weight="bold"), flex="1", padding="2") for col in columns],
-                    width="100%",
-                    padding="2",
+                    *[
+                        rx.box(
+                            rx.text(col.replace("_", " ").title(), weight="bold", size="2"),
+                            min_width=cell_min_w,
+                            padding="2",
+                        )
+                        for col in columns
+                    ],
+                    width="max-content",
+                    min_width="100%",
                     background_color="#f0f0f0",
                     border_bottom="1px solid #e2e8f0",
+                    position="sticky",
+                    top="0",
+                    z_index="1",
                 ),
                 # Data rows
-                rx.foreach(
-                    data,
-                    lambda row: rx.hstack(
-                        *[
-                            rx.box(
-                                rx.text(row[col]),
-                                flex="1",
-                                padding="2"
-                            )
-                            for col in columns
-                        ],
-                        width="100%",
-                        padding="2",
-                        border_bottom="1px solid #e2e8f0",
-                    )
+                rx.vstack(
+                    rx.foreach(
+                        data,
+                        lambda row: rx.hstack(
+                            *[
+                                rx.box(
+                                    rx.text(row[col], size="2"),
+                                    min_width=cell_min_w,
+                                    padding="2",
+                                )
+                                for col in columns
+                            ],
+                            width="max-content",
+                            min_width="100%",
+                            border_bottom="1px solid #e2e8f0",
+                        )
+                    ),
+                    spacing="0",
+                    width="max-content",
+                    min_width="100%",
                 ),
+                # Single scroll container: horizontal + vertical
+                overflow_x="auto",
+                overflow_y="auto",
+                max_height="500px",
                 width="100%",
-                spacing="0",
             ),
             width="100%",
             border="1px solid #e2e8f0",
@@ -732,10 +765,10 @@ def index() -> rx.Component:
                                     ["#8b5cf6", "#06b6d4"]
                                 ),
                                 line_chart(
-                                    "Profit Per Liter",
+                                    "Profit Per 1000 Liters",
                                     State.ethanol_chart_data,
                                     "date",
-                                    ["target_ethanol_profit_per_liter"],
+                                    ["target_ethanol_profit_per_1000_liter"],
                                     ["#3b82f6"]
                                 ),
                                 spacing="3",
@@ -917,7 +950,7 @@ def index() -> rx.Component:
                             ),
 
                             rx.box(
-                                rx.text("Predicted Ethanol Profit Per Liter:", size="2", weight="medium"),
+                                rx.text("Predicted Ethanol Profit Per 1000 Liters:", size="2", weight="medium"),
                                 rx.heading(f"${State.predicted_ethanol_profit:.4f}", size="8", color="blue"),
                                 padding="4",
                                 border="2px solid var(--blue-7)",
@@ -1328,6 +1361,252 @@ def explanation_page() -> rx.Component:
                     border="1px solid var(--orange-7)",
                     border_radius="lg",
                     background="var(--orange-1)",
+                    width="100%",
+                    margin_bottom="4",
+                ),
+
+                # Mock Data Generation Explanation
+                rx.box(
+                    rx.vstack(
+                        rx.heading("🧪 How Mock Data is Generated & Calculated", size="6", color="teal"),
+                        rx.divider(margin_y="3"),
+
+                        rx.text(
+                            "The synthetic dataset is created in model.py → generate_unified_sugarcane_data(). "
+                            "A fixed random seed (np.random.seed(42)) ensures the same data is reproduced every run. "
+                            "Below is the step-by-step breakdown for the Ethanol dataset.",
+                            size="3", color="gray", margin_bottom="3",
+                        ),
+
+                        # Step 1: Raw inputs
+                        rx.box(
+                            rx.vstack(
+                                rx.text("Step 1 — Generate Raw Input Columns (Random Sampling)", weight="bold", size="3"),
+                                rx.divider(margin_y="2"),
+                                rx.vstack(
+                                    rx.hstack(
+                                        rx.badge("ethanol_price", color_scheme="teal"),
+                                        rx.text("np.random.uniform(0.50, 0.85)  →  random price between $0.50 – $0.85 per liter", size="2"),
+                                        spacing="2", align="center",
+                                    ),
+                                    rx.hstack(
+                                        rx.badge("crude_oil_price", color_scheme="teal"),
+                                        rx.text("np.random.uniform(60, 100)  →  random price between $60 – $100 per barrel", size="2"),
+                                        spacing="2", align="center",
+                                    ),
+                                    rx.hstack(
+                                        rx.badge("gasoline_price", color_scheme="teal"),
+                                        rx.text("np.random.uniform(2.0, 3.2)  →  random price between $2.00 – $3.20 per gallon", size="2"),
+                                        spacing="2", align="center",
+                                    ),
+                                    rx.hstack(
+                                        rx.badge("ccs_quality", color_scheme="teal"),
+                                        rx.text("np.random.normal(11.5, 1.0), clipped to [9.0, 14.0]  →  Commercial Cane Sugar quality index", size="2"),
+                                        spacing="2", align="center",
+                                    ),
+                                    rx.hstack(
+                                        rx.badge("fermentation_efficiency", color_scheme="teal"),
+                                        rx.text("np.random.uniform(0.88, 0.96)  →  88% – 96% sugar-to-ethanol conversion rate", size="2"),
+                                        spacing="2", align="center",
+                                    ),
+                                    rx.hstack(
+                                        rx.badge("cane_yield_tons_per_hectare", color_scheme="gray"),
+                                        rx.text("np.random.normal(80, 15), clipped to [40, 120]  →  tons of cane harvested per hectare", size="2"),
+                                        spacing="2", align="center",
+                                    ),
+                                    rx.hstack(
+                                        rx.badge("sugar_content_brix", color_scheme="gray"),
+                                        rx.text("np.random.normal(14, 2), clipped to [10, 18]  →  sugar % in cane (Brix scale)", size="2"),
+                                        spacing="2", align="center",
+                                    ),
+                                    rx.hstack(
+                                        rx.badge("plantation_cost_per_hectare", color_scheme="gray"),
+                                        rx.text("np.random.normal(2000, 300)  →  fixed growing cost in $ per hectare", size="2"),
+                                        spacing="2", align="center",
+                                    ),
+                                    rx.hstack(
+                                        rx.badge("ethanol_processing_cost_per_ton_cane", color_scheme="gray"),
+                                        rx.text("np.random.normal(25, 5)  →  fermentation + distillation cost per ton of cane", size="2"),
+                                        spacing="2", align="center",
+                                    ),
+                                    rx.hstack(
+                                        rx.badge("bagasse_value_per_ton", color_scheme="gray"),
+                                        rx.text("np.random.uniform(15, 35)  →  sale price of bagasse (cane fibre) byproduct", size="2"),
+                                        spacing="2", align="center",
+                                    ),
+                                    spacing="2", align="start",
+                                ),
+                            ),
+                            padding="4",
+                            border="1px solid var(--teal-5)",
+                            border_radius="md",
+                            background="var(--teal-1)",
+                            width="100%",
+                            margin_bottom="3",
+                        ),
+
+                        # Step 2: Intermediate calculations
+                        rx.box(
+                            rx.vstack(
+                                rx.text("Step 2 — Calculate Ethanol Production Yield", weight="bold", size="3"),
+                                rx.divider(margin_y="2"),
+                                rx.code(
+                                    "ethanol_liters_per_hectare =\n"
+                                    "    cane_yield_tons_per_hectare\n"
+                                    "    × (sugar_content_brix / 100)\n"
+                                    "    × fermentation_efficiency\n"
+                                    "    × 650   # ~650 liters per ton of fermentable sugar",
+                                    display="block", white_space="pre", font_size="13px",
+                                ),
+                                rx.text(
+                                    "Example: 80 t/ha × 0.14 × 0.92 × 650 = 6,697 liters/ha",
+                                    size="2", color="gray", margin_top="2",
+                                ),
+                            ),
+                            padding="4",
+                            border="1px solid var(--teal-5)",
+                            border_radius="md",
+                            background="var(--teal-1)",
+                            width="100%",
+                            margin_bottom="3",
+                        ),
+
+                        # Step 3: Byproduct
+                        rx.box(
+                            rx.vstack(
+                                rx.text("Step 3 — Calculate Bagasse Byproduct Revenue", weight="bold", size="3"),
+                                rx.divider(margin_y="2"),
+                                rx.code(
+                                    "bagasse_tons_per_hectare = cane_yield_tons_per_hectare × 0.28\n"
+                                    "  # ~28% of cane mass becomes bagasse (fibrous residue)\n\n"
+                                    "ethanol_byproduct_revenue = bagasse_tons_per_hectare × bagasse_value_per_ton",
+                                    display="block", white_space="pre", font_size="13px",
+                                ),
+                                rx.text(
+                                    "Example: 80 × 0.28 = 22.4 tons bagasse × $25/ton = $560 byproduct revenue",
+                                    size="2", color="gray", margin_top="2",
+                                ),
+                            ),
+                            padding="4",
+                            border="1px solid var(--teal-5)",
+                            border_radius="md",
+                            background="var(--teal-1)",
+                            width="100%",
+                            margin_bottom="3",
+                        ),
+
+                        # Step 4: Weather penalty
+                        rx.box(
+                            rx.vstack(
+                                rx.text("Step 4 — Apply Weather Penalty", weight="bold", size="3"),
+                                rx.divider(margin_y="2"),
+                                rx.code(
+                                    "weather_penalty = 0\n"
+                                    "weather_penalty += clip(|avg_temp - 26| × 2,  0, 15)\n"
+                                    "weather_penalty += clip(|rainfall_mm - 1200| × 0.01, 0, 10)\n"
+                                    "# Optimal: 26°C and 1200mm rainfall — deviations reduce profit",
+                                    display="block", white_space="pre", font_size="13px",
+                                ),
+                                rx.text(
+                                    "Example: temp=28°C → penalty += |28-26|×2 = 4; rainfall=1000mm → penalty += |1000-1200|×0.01 = 2 → total penalty = $6",
+                                    size="2", color="gray", margin_top="2",
+                                ),
+                            ),
+                            padding="4",
+                            border="1px solid var(--teal-5)",
+                            border_radius="md",
+                            background="var(--teal-1)",
+                            width="100%",
+                            margin_bottom="3",
+                        ),
+
+                        # Step 5: Profit per hectare
+                        rx.box(
+                            rx.vstack(
+                                rx.text("Step 5 — Calculate Ethanol Profit per Hectare", weight="bold", size="3"),
+                                rx.divider(margin_y="2"),
+                                rx.code(
+                                    "ethanol_revenue = ethanol_liters_per_hectare × ethanol_price_per_liter\n\n"
+                                    "ethanol_processing_cost =\n"
+                                    "    cane_yield_tons_per_hectare × ethanol_processing_cost_per_ton_cane\n\n"
+                                    "ethanol_profit_per_hectare =\n"
+                                    "    ethanol_revenue\n"
+                                    "  + ethanol_byproduct_revenue\n"
+                                    "  - ethanol_processing_cost\n"
+                                    "  - plantation_cost_per_hectare\n"
+                                    "  - weather_penalty",
+                                    display="block", white_space="pre", font_size="13px",
+                                ),
+                                rx.text(
+                                    "Example: 6697L × $0.65 = $4,353 revenue + $560 byproduct − (80×$25=$2,000 processing) − $2,000 plantation − $6 weather = $907/ha",
+                                    size="2", color="gray", margin_top="2",
+                                ),
+                            ),
+                            padding="4",
+                            border="1px solid var(--teal-5)",
+                            border_radius="md",
+                            background="var(--teal-1)",
+                            width="100%",
+                            margin_bottom="3",
+                        ),
+
+                        # Step 6: Final target
+                        rx.box(
+                            rx.vstack(
+                                rx.text("Step 6 — Compute Target Column (What the ML Model Predicts)", weight="bold", size="3"),
+                                rx.divider(margin_y="2"),
+                                rx.code(
+                                    "target_ethanol_profit_per_1000_liter =\n"
+                                    "    (ethanol_profit_per_hectare / ethanol_liters_per_hectare) × 1000\n\n"
+                                    "# Then ±8% random noise is applied to simulate real-world variance:\n"
+                                    "ethanol_profit_per_hectare *= np.random.normal(1, 0.08)",
+                                    display="block", white_space="pre", font_size="13px",
+                                ),
+                                rx.text(
+                                    "Example: ($907 / 6697L) × 1000 = $135.4 profit per 1000 liters. "
+                                    "This is the TARGET the ML model learns to predict from the 5 input features above.",
+                                    size="2", color="gray", margin_top="2",
+                                ),
+                            ),
+                            padding="4",
+                            border="2px solid var(--teal-7)",
+                            border_radius="md",
+                            background="var(--teal-2)",
+                            width="100%",
+                            margin_bottom="3",
+                        ),
+
+                        # Summary formula
+                        rx.box(
+                            rx.vstack(
+                                rx.text("Summary Formula", weight="bold", size="3"),
+                                rx.divider(margin_y="2"),
+                                rx.code(
+                                    "target_ethanol_profit_per_1000_liter =\n"
+                                    "  [\n"
+                                    "    (yield × brix% × efficiency × 650 × ethanol_price)   ← ethanol revenue\n"
+                                    "  + (yield × 0.28 × bagasse_price)                         ← byproduct\n"
+                                    "  - (yield × processing_cost)                              ← processing\n"
+                                    "  - plantation_cost                                         ← growing cost\n"
+                                    "  - weather_penalty                                         ← climate impact\n"
+                                    "  ] / (yield × brix% × efficiency × 650) × 1000",
+                                    display="block", white_space="pre", font_size="13px",
+                                ),
+                            ),
+                            padding="4",
+                            border="1px solid var(--gray-5)",
+                            border_radius="md",
+                            background="var(--gray-2)",
+                            width="100%",
+                        ),
+
+                        spacing="3",
+                        align="start",
+                    ),
+                    padding="4",
+                    border="1px solid var(--teal-7)",
+                    border_radius="lg",
+                    background="var(--teal-1)",
                     width="100%",
                     margin_bottom="4",
                 ),
